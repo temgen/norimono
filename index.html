@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電車・バス 支払い練習ゲーム</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "UD デジタル 教科書体", "Yu Gothic", "Hiragino Sans", sans-serif;
+  background: #dcecff;
+  user-select: none;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#mainArea {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 80%;
+  display: flex;
+  background: #dcecff;
+}
+
+#infoPanel {
+  width: 20%;
+  height: 100%;
+  background: linear-gradient(180deg, #ffffff, #eaf5ff);
+  border-right: 6px solid #ffffff;
+  box-shadow: 4px 0 12px rgba(0,0,0,0.12);
+  padding: 18px 12px;
+  z-index: 50;
+}
+
+.info-card {
+  background: #ffffff;
+  border: 4px solid #2277ff;
+  border-radius: 22px;
+  padding: 16px 8px;
+  margin-bottom: 18px;
+  text-align: center;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.18);
+}
+
+.info-label {
+  font-size: clamp(16px, 2.1vw, 30px);
+  font-weight: bold;
+  color: #003c7a;
+  line-height: 1.25;
+}
+
+.info-value {
+  margin-top: 12px;
+  font-size: clamp(28px, 4.5vw, 70px);
+  font-weight: bold;
+  color: #ff7a00;
+  line-height: 1;
+  word-break: keep-all;
+}
+
+.info-yen {
+  font-size: clamp(18px, 2.3vw, 34px);
+  color: #222;
+  margin-left: 2px;
+}
+
+#stage {
+  position: relative;
+  width: 80%;
+  height: 100%;
+  background: #dcecff;
+  overflow: hidden;
+}
+
+#bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bg-missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: bold;
+  color: #555;
+  background: repeating-linear-gradient(
+    45deg,
+    #dcecff,
+    #dcecff 20px,
+    #edf6ff 20px,
+    #edf6ff 40px
+  );
+}
+
+#inventory {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 20%;
+  background: linear-gradient(180deg, #fff8d8, #ffeeb0);
+  border-top: 5px solid white;
+  box-shadow: 0 -4px 14px rgba(0,0,0,0.18);
+}
+
+.inventory-title {
+  position: absolute;
+  left: 18px;
+  top: 8px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #6a4600;
+}
+
+.controls {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 80;
+  flex-wrap: wrap;
+}
+
+button {
+  border: none;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 17px;
+  font-weight: bold;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 3px 0 rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.25);
+}
+
+#stageLabel {
+  background: #2277ff;
+  color: white;
+}
+
+.zone {
+  position: absolute;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+  color: #003c7a;
+  background: rgba(255, 255, 255, 0.35);
+  border: 4px dashed rgba(0, 110, 255, 0.85);
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0;
+}
+
+#app.show-zones .zone {
+  opacity: 1;
+}
+
+#itemsLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.drag-item {
+  position: absolute;
+  width: clamp(82px, 10vw, 122px);
+  min-height: clamp(86px, 10.5vw, 126px);
+  border-radius: 18px;
+  background: white;
+  border: 3px solid #333;
+  box-shadow: 0 5px 0 rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: grab;
+  touch-action: none;
+  pointer-events: auto;
+  z-index: 100;
+}
+
+.drag-item.hidden {
+  display: none;
+}
+
+.drag-item.used {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.drag-item.locked {
+  pointer-events: none;
+}
+
+.drag-item.dragging {
+  z-index: 300;
+  transform: scale(1.08);
+}
+
+.drag-item.animating {
+  transition: left 0.8s ease, top 0.8s ease, transform 0.8s ease;
+  z-index: 350;
+}
+
+.pic {
+  width: 72%;
+  height: 54%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.pic img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.fallback {
+  display: none;
+  font-size: 34px;
+}
+
+.drag-item.image-error .fallback {
+  display: block;
+}
+
+.drag-item.image-error img {
+  display: none;
+}
+
+.name {
+  font-size: clamp(14px, 1.6vw, 20px);
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.badge {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  background: #ff4b4b;
+  color: white;
+  border: 3px solid white;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: bold;
+  display: none;
+}
+
+.badge.show {
+  display: block;
+}
+
+#messageWindow {
+  position: absolute;
+  left: 60%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  min-width: min(680px, 70vw);
+  max-width: 76vw;
+  padding: 34px 42px;
+  background: rgba(255,255,255,0.97);
+  border: 6px solid #2277ff;
+  border-radius: 28px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  text-align: center;
+  font-size: clamp(30px, 5vw, 56px);
+  font-weight: bold;
+  color: #0057c8;
+  z-index: 500;
+  display: none;
+  pointer-events: none;
+  white-space: pre-line;
+}
+
+#messageWindow.show {
+  display: block;
+}
+
+#messageWindow.clickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.tap-guide {
+  display: block;
+  margin-top: 20px;
+  font-size: clamp(18px, 2.4vw, 32px);
+  color: #ff8800;
+}
+
+#clearOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.82);
+  display: none;
+  z-index: 600;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+#clearOverlay.show {
+  display: flex;
+}
+
+.clear-box {
+  background: white;
+  border: 7px solid #ff9900;
+  border-radius: 30px;
+  padding: 38px 48px;
+  max-width: 760px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+}
+
+.clear-title {
+  font-size: clamp(46px, 7vw, 80px);
+  font-weight: bold;
+  color: #ff8800;
+  margin-bottom: 12px;
+}
+
+#clearText {
+  font-size: clamp(24px, 3.5vw, 42px);
+  font-weight: bold;
+  color: #0057c8;
+  margin-bottom: 26px;
+  white-space: pre-line;
+}
+
+.clear-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+#blackGameOver {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+  font-size: clamp(34px, 6vw, 78px);
+  font-weight: bold;
+  line-height: 1.35;
+}
+
+#blackGameOver.show {
+  display: flex;
+}
+
+#blackGameOver .tapText {
+  margin-top: 32px;
+  font-size: clamp(20px, 3vw, 38px);
+  color: #ffd966;
+}
+
+#finalClearOverlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 1100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#finalClearOverlay.show {
+  display: flex;
+}
+
+#finalClearOverlay img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#stageSelectOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 950;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+#stageSelectOverlay.show {
+  display: flex;
+}
+
+.stage-select-box {
+  background: #ffffff;
+  border: 6px solid #2277ff;
+  border-radius: 28px;
+  padding: 28px;
+  width: min(760px, 92vw);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.3);
+  text-align: center;
+}
+
+.stage-select-title {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: bold;
+  color: #0057c8;
+  margin-bottom: 22px;
+}
+
+.stage-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.stage-choice {
+  border: none;
+  border-radius: 18px;
+  padding: 18px 12px;
+  font-size: clamp(18px, 2.4vw, 30px);
+  font-weight: bold;
+  background: #fff4c9;
+  color: #222;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+}
+
+.stage-choice.current {
+  background: #2277ff;
+  color: white;
+}
+
+.stage-select-close {
+  margin-top: 22px;
+  background: #eeeeee;
+}
+
+@media (max-width: 760px) {
+  #infoPanel {
+    padding: 10px 6px;
+  }
+
+  .info-card {
+    border-width: 3px;
+    padding: 10px 4px;
+    margin-bottom: 10px;
+    border-radius: 16px;
+  }
+
+  .controls {
+    left: 8px;
+    top: 8px;
+    gap: 6px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .inventory-title {
+    font-size: 16px;
+    top: 5px;
+  }
+
+  .drag-item {
+    width: 76px;
+    min-height: 82px;
+  }
+
+  .name {
+    font-size: 13px;
+  }
+
+  .badge {
+    font-size: 11px;
+  }
+
+  .zone {
+    font-size: 16px;
+  }
+
+  .stage-select-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+  <div id="mainArea">
+    <div id="infoPanel">
+      <div class="info-card">
+        <div class="info-label">運賃<br>（うんちん）</div>
+        <div class="info-value">
+          <span id="fareValue">200</span><span id="fareYen" class="info-yen">円</span>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-label">もっている<br>おかね</div>
+        <div class="info-value">
+          <span id="moneyValue">200</span><span class="info-yen">円</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="stage">
+      <div id="bgMissing" class="bg-missing">背景画像がありません</div>
+      <img id="bg" alt="">
+
+      <div class="controls">
+        <button id="stageLabel" onclick="openStageSelect()">ステージ1</button>
+        <button onclick="resetScene()">もう一回</button>
+        <button onclick="toggleZones()">判定表示</button>
+      </div>
+
+      <div id="zonesLayer"></div>
+    </div>
+  </div>
+
+  <div id="inventory">
+    <div class="inventory-title">もちもの</div>
+  </div>
+
+  <div id="itemsLayer"></div>
+
+  <div id="messageWindow"></div>
+
+  <div id="clearOverlay">
+    <div class="clear-box">
+      <div class="clear-title">クリア！</div>
+      <div id="clearText"></div>
+      <div class="clear-buttons">
+        <button onclick="goNextStage()">次へ →</button>
+        <button onclick="resetScene()">もう一回</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="blackGameOver" onclick="resetAfterBlackGameOver()">
+    <div>
+      のりものにのることが<br>
+      できませんでした
+      <div class="tapText">画面をタップしてください</div>
+    </div>
+  </div>
+
+  <div id="finalClearOverlay" onclick="resetAfterFinalClear()">
+    <img src="clear.png" alt="ぜんぶクリア">
+  </div>
+
+  <div id="stageSelectOverlay">
+    <div class="stage-select-box">
+      <div class="stage-select-title">ステージをえらぶ</div>
+      <div id="stageSelectGrid" class="stage-select-grid"></div>
+      <button class="stage-select-close" onclick="closeStageSelect()">とじる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+画像名一覧
+画像はHTMLと同じフォルダに置いてください。
+
+station_bg.jpg      鉄道ステージ背景
+bus_bg.jpg          バスステージ背景
+money.png           通常のお金
+money_charge.png    ステージ2だけで使うチャージ用のお金
+iccard.png          ICカード
+ainotecho.png       愛の手帳
+ticket.png          きっぷ
+clear.png           最終ステージクリア画像
+*/
+const ASSETS = {
+  stationBg: "station_bg.jpg",
+  busBg: "bus_bg.jpg",
+  money: "money.png",
+  moneyCharge: "money_charge.png",
+  ic: "iccard.png",
+  passbook: "ainotecho.png",
+  ticket: "ticket.png",
+  finalClear: "clear.png"
+};
+
+/*
+当たり判定の場所調整
+left   左からの位置
+top    上からの位置
+width  横幅
+height 高さ
+*/
+const TRAIN_ZONES = {
+  machine: {
+    label: "券売機",
+    left: 53,
+    top: 20,
+    width: 12,
+    height: 34
+  },
+  gate: {
+    label: "改札",
+    left: 71,
+    top: 42,
+    width: 26,
+    height: 15
+  },
+  staff: {
+    label: "駅員",
+    left: 24,
+    top: 18,
+    width: 12,
+    height: 32
+  }
+};
+
+const BUS_ZONES = {
+  driver: {
+    label: "運転手",
+    left: 63,
+    top: 16,
+    width: 12,
+    height: 32
+  },
+  icReader: {
+    label: "ICタッチ",
+    left: 34.5,
+    top: 50.3,
+    width: 5,
+    height: 14
+  },
+  cashSlot: {
+    label: "現金投入口",
+    left: 35,
+    top: 40,
+    width: 6,
+    height: 7
+  }
+};
+
+const STAGES = [
+  {
+    id: 1,
+    type: "train",
+    bg: ASSETS.stationBg,
+    startMessage: "きっぷをかって\nかいさつをとおろう！",
+    money: 200,
+    fare: 200,
+    discountFare: null,
+    clearMode: "trainTicketGate",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 },
+      { id: "ticket", label: "きっぷ", img: ASSETS.ticket, fallback: "🎫", left: 21, top: 84, hidden: true }
+    ]
+  },
+  {
+    id: 2,
+    type: "train",
+    bg: ASSETS.stationBg,
+    startMessage: "ICカードにおかねを\nチャージしよう！",
+    money: 10000,
+    fare: null,
+    fareDisplay: "－－－－",
+    clearMode: "chargeOnly",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.moneyCharge, fallback: "💴", left: 7, top: 84 },
+      { id: "ic", label: "ICカード", img: ASSETS.ic, fallback: "💳", left: 21, top: 84 }
+    ]
+  },
+  {
+    id: 3,
+    type: "train",
+    bg: ASSETS.stationBg,
+    startMessage: "ICカードで\nかいさつをとおろう！",
+    money: 200,
+    fare: 3000,
+    initialChargedIC: true,
+    clearMode: "trainIcGate",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 },
+      { id: "ic", label: "ICカード", img: ASSETS.ic, fallback: "💳", left: 21, top: 84 }
+    ]
+  },
+  {
+    id: 4,
+    type: "train",
+    bg: ASSETS.stationBg,
+    startMessage: "あいのてちょうで\nわりびきしよう！",
+    money: 200,
+    fare: 400,
+    discountFare: 200,
+    clearMode: "trainTicketGate",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 },
+      { id: "passbook", label: "愛の手帳", img: ASSETS.passbook, fallback: "📘", left: 21, top: 84 },
+      { id: "ticket", label: "きっぷ", img: ASSETS.ticket, fallback: "🎫", left: 35, top: 84, hidden: true }
+    ]
+  },
+  {
+    id: 5,
+    type: "bus",
+    bg: ASSETS.busBg,
+    startMessage: "バスにのろう！",
+    money: 200,
+    fare: 200,
+    clearMode: "busCash",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 }
+    ]
+  },
+  {
+    id: 6,
+    type: "bus",
+    bg: ASSETS.busBg,
+    startMessage: "ICカードで\nバスにのろう！",
+    money: 200,
+    fare: 300,
+    initialChargedIC: true,
+    clearMode: "busIc",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 },
+      { id: "ic", label: "ICカード", img: ASSETS.ic, fallback: "💳", left: 21, top: 84 }
+    ]
+  },
+  {
+    id: 7,
+    type: "bus",
+    bg: ASSETS.busBg,
+    startMessage: "あいのてちょうで\nわりびきしよう！",
+    money: 200,
+    fare: 300,
+    discountFare: 150,
+    initialChargedIC: true,
+    clearMode: "busDiscountAny",
+    items: [
+      { id: "money", label: "お金", img: ASSETS.money, fallback: "💴", left: 7, top: 84 },
+      { id: "ic", label: "ICカード", img: ASSETS.ic, fallback: "💳", left: 21, top: 84 },
+      { id: "passbook", label: "愛の手帳", img: ASSETS.passbook, fallback: "📘", left: 35, top: 84 }
+    ]
+  }
+];
+
+let currentStageIndex = 0;
+let state = {};
+let dragging = null;
+let messageTimer = null;
+let messageTapCallback = null;
+let inputLocked = false;
+let gameOverSequence = false;
+
+const app = document.getElementById("app");
+const bg = document.getElementById("bg");
+const bgMissing = document.getElementById("bgMissing");
+const zonesLayer = document.getElementById("zonesLayer");
+const itemsLayer = document.getElementById("itemsLayer");
+const messageWindow = document.getElementById("messageWindow");
+const clearOverlay = document.getElementById("clearOverlay");
+const clearText = document.getElementById("clearText");
+const fareValue = document.getElementById("fareValue");
+const fareYen = document.getElementById("fareYen");
+const moneyValue = document.getElementById("moneyValue");
+const blackGameOver = document.getElementById("blackGameOver");
+const finalClearOverlay = document.getElementById("finalClearOverlay");
+const stageLabel = document.getElementById("stageLabel");
+const stageSelectOverlay = document.getElementById("stageSelectOverlay");
+const stageSelectGrid = document.getElementById("stageSelectGrid");
+
+messageWindow.addEventListener("click", () => {
+  if (!messageTapCallback) return;
+
+  const callback = messageTapCallback;
+  messageTapCallback = null;
+  hideMessage();
+  inputLocked = false;
+
+  callback();
+});
+
+function currentStage() {
+  return STAGES[currentStageIndex];
+}
+
+function makeDefaultState(stage) {
+  return {
+    discount: false,
+    chargedIC: !!stage.initialChargedIC,
+    icInMachine: false,
+    ticketIssued: false,
+    cleared: false,
+    money: stage.money,
+    stationGateBadCount: 0,
+    busMachineBadCount: 0
+  };
+}
+
+function getCurrentFare() {
+  const stage = currentStage();
+
+  if (stage.fare === null) {
+    return null;
+  }
+
+  if (state.discount && stage.discountFare !== null && stage.discountFare !== undefined) {
+    return stage.discountFare;
+  }
+
+  return stage.fare;
+}
+
+function hasEnoughMoney() {
+  const fare = getCurrentFare();
+
+  if (fare === null) {
+    return true;
+  }
+
+  return state.money >= fare;
+}
+
+function updateInfoPanel() {
+  const stage = currentStage();
+  const fare = getCurrentFare();
+
+  if (stage.fareDisplay) {
+    fareValue.textContent = stage.fareDisplay;
+    fareYen.textContent = "";
+  } else {
+    fareValue.textContent = fare;
+    fareYen.textContent = "円";
+  }
+
+  moneyValue.textContent = state.money;
+  stageLabel.textContent = "ステージ" + stage.id;
+}
+
+function startStage(index) {
+  currentStageIndex = index;
+  state = makeDefaultState(currentStage());
+  renderScene();
+}
+
+function resetScene() {
+  state = makeDefaultState(currentStage());
+  renderScene();
+}
+
+function renderScene() {
+  const stage = currentStage();
+
+  gameOverSequence = false;
+  inputLocked = false;
+  messageTapCallback = null;
+
+  hideMessage();
+  clearOverlay.classList.remove("show");
+  blackGameOver.classList.remove("show");
+  finalClearOverlay.classList.remove("show");
+  stageSelectOverlay.classList.remove("show");
+
+  bgMissing.style.display = "grid";
+  bgMissing.textContent = "背景画像がありません";
+  bg.style.display = "none";
+  bg.src = stage.bg;
+
+  bg.onload = () => {
+    bg.style.display = "block";
+    bgMissing.style.display = "none";
+  };
+
+  bg.onerror = () => {
+    bg.style.display = "none";
+    bgMissing.textContent = "背景画像がありません：" + stage.bg;
+    bgMissing.style.display = "grid";
+  };
+
+  renderZones();
+  renderItems();
+  updateInfoPanel();
+
+  showTapMessage(stage.startMessage);
+}
+
+function renderZones() {
+  zonesLayer.innerHTML = "";
+
+  const stage = currentStage();
+  const zones = stage.type === "train" ? TRAIN_ZONES : BUS_ZONES;
+
+  Object.keys(zones).forEach(zoneId => {
+    const z = zones[zoneId];
+
+    const div = document.createElement("div");
+    div.className = "zone";
+    div.dataset.zone = zoneId;
+    div.textContent = z.label;
+
+    div.style.left = z.left + "%";
+    div.style.top = z.top + "%";
+    div.style.width = z.width + "%";
+    div.style.height = z.height + "%";
+
+    zonesLayer.appendChild(div);
+  });
+}
+
+function renderItems() {
+  itemsLayer.innerHTML = "";
+
+  currentStage().items.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "drag-item";
+    el.dataset.id = item.id;
+    el.dataset.startLeft = item.left;
+    el.dataset.startTop = item.top;
+
+    if (item.hidden) {
+      el.classList.add("hidden");
+    }
+
+    el.style.left = item.left + "%";
+    el.style.top = item.top + "%";
+
+    el.innerHTML = `
+      <div class="badge"></div>
+      <div class="pic">
+        <img src="${item.img}" alt="${item.label}">
+        <span class="fallback">${item.fallback || "□"}</span>
+      </div>
+      <div class="name">${item.label}</div>
+    `;
+
+    const img = el.querySelector("img");
+    img.onerror = () => {
+      el.classList.add("image-error");
+    };
+
+    el.addEventListener("pointerdown", pointerDown);
+    itemsLayer.appendChild(el);
+  });
+}
+
+function pointerDown(e) {
+  if (inputLocked || gameOverSequence) return;
+
+  const el = e.currentTarget;
+
+  if (
+    el.classList.contains("hidden") ||
+    el.classList.contains("used") ||
+    el.classList.contains("locked")
+  ) {
+    return;
+  }
+
+  e.preventDefault();
+
+  const rect = el.getBoundingClientRect();
+
+  dragging = {
+    el,
+    id: el.dataset.id,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top
+  };
+
+  el.classList.add("dragging");
+  el.setPointerCapture(e.pointerId);
+
+  document.addEventListener("pointermove", pointerMove);
+  document.addEventListener("pointerup", pointerUp, { once: true });
+}
+
+function pointerMove(e) {
+  if (!dragging || inputLocked || gameOverSequence) return;
+
+  const appRect = app.getBoundingClientRect();
+  const el = dragging.el;
+
+  let x = e.clientX - appRect.left - dragging.offsetX;
+  let y = e.clientY - appRect.top - dragging.offsetY;
+
+  x = Math.max(0, Math.min(x, appRect.width - el.offsetWidth));
+  y = Math.max(0, Math.min(y, appRect.height - el.offsetHeight));
+
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+}
+
+function pointerUp() {
+  document.removeEventListener("pointermove", pointerMove);
+
+  if (!dragging) return;
+
+  const el = dragging.el;
+  el.classList.remove("dragging");
+
+  const zoneId = getDroppedZone(el);
+  handleDrop(dragging.id, zoneId);
+
+  dragging = null;
+}
+
+function getDroppedZone(itemEl) {
+  const itemRect = itemEl.getBoundingClientRect();
+  const zoneEls = Array.from(document.querySelectorAll(".zone"));
+
+  let bestZone = null;
+  let bestArea = 0;
+
+  for (const zone of zoneEls) {
+    const r = zone.getBoundingClientRect();
+
+    const overlapX = Math.max(0, Math.min(itemRect.right, r.right) - Math.max(itemRect.left, r.left));
+    const overlapY = Math.max(0, Math.min(itemRect.bottom, r.bottom) - Math.max(itemRect.top, r.top));
+    const area = overlapX * overlapY;
+
+    if (area > bestArea) {
+      bestArea = area;
+      bestZone = zone.dataset.zone;
+    }
+  }
+
+  return bestArea > 100 ? bestZone : null;
+}
+
+function handleDrop(itemId, zoneId) {
+  const stage = currentStage();
+
+  if (stage.type === "train") {
+    handleTrainDrop(itemId, zoneId);
+  } else {
+    handleBusDrop(itemId, zoneId);
+  }
+}
+
+function handleTrainDrop(itemId, zoneId) {
+  const stage = currentStage();
+
+  if (!zoneId) {
+    resetItem(itemId);
+    resetStationGateBadCount();
+    return;
+  }
+
+  if (itemId === "passbook" && zoneId === "staff") {
+    resetStationGateBadCount();
+    state.discount = true;
+    setBadge("passbook", "提示済み");
+    showMessage("やすくなりました");
+    resetItem(itemId);
+    updateInfoPanel();
+    return;
+  }
+
+  if (stage.id === 2 && itemId === "ic" && zoneId === "staff") {
+    resetStationGateBadCount();
+    showTapMessage("チャージしてください");
+    resetItem(itemId);
+    return;
+  }
+
+  if ((itemId === "ticket" || itemId === "ic") && zoneId === "staff") {
+    resetStationGateBadCount();
+    showMessage("かいさつにいってください");
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "staff") {
+    resetStationGateBadCount();
+    showMessage("けんばいきできっぷをかってください");
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "gate") {
+    resetItem(itemId);
+    if (addStationGateBadCount()) return;
+    showMessage("おかねをいれないで！！");
+    return;
+  }
+
+  if (itemId === "passbook" && zoneId === "gate") {
+    resetItem(itemId);
+    if (addStationGateBadCount()) return;
+    showMessage("てちょうをいれないで！！");
+    return;
+  }
+
+  if (stage.id === 2) {
+    handleStage2Train(itemId, zoneId);
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "machine") {
+    resetStationGateBadCount();
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "machine") {
+    resetStationGateBadCount();
+
+    if (!hasEnoughMoney()) {
+      showMessage("おかねがたりません");
+      resetItem(itemId);
+      return;
+    }
+
+    state.ticketIssued = true;
+    state.money = Math.max(0, state.money - getCurrentFare());
+
+    useItem("money");
+    showMessage("きっぷをかいました！");
+    updateInfoPanel();
+
+    animateItemFromZoneToHome("ticket", "machine", () => {
+      if (state.discount) {
+        setBadge("ticket", "割引");
+      }
+    });
+
+    return;
+  }
+
+  if (itemId === "ticket" && zoneId === "gate") {
+    resetStationGateBadCount();
+
+    if (stage.clearMode === "trainTicketGate" && state.ticketIssued) {
+      clearGame("きっぷで通れました");
+      return;
+    }
+
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "gate") {
+    resetStationGateBadCount();
+
+    if (stage.clearMode === "trainIcGate" && state.chargedIC) {
+      clearGame("ICカードで通れました");
+      return;
+    }
+
+    resetItem(itemId);
+    return;
+  }
+
+  resetStationGateBadCount();
+  resetItem(itemId);
+}
+
+function handleStage2Train(itemId, zoneId) {
+  if (!zoneId) {
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "machine") {
+    if (!state.icInMachine) {
+      showTapMessage("ICカードをさきにいれよう！");
+      resetItem(itemId);
+      return;
+    }
+
+    state.money = 0;
+    state.chargedIC = true;
+    state.icInMachine = false;
+
+    useItem("money");
+    setBadge("ic", "チャージ済み");
+    updateInfoPanel();
+
+    animateItemFromZoneToHome("ic", "machine", () => {
+      clearGame("チャージできました！");
+    });
+
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "machine") {
+    if (state.chargedIC || state.icInMachine) {
+      resetItem(itemId);
+      return;
+    }
+
+    state.icInMachine = true;
+    showMessage("おかねをチャージしよう！");
+    moveItemToZone("ic", "machine", true);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "gate") {
+    resetItem(itemId);
+    if (addStationGateBadCount()) return;
+    showMessage("おかねをいれないで！！");
+    return;
+  }
+
+  resetItem(itemId);
+}
+
+function handleBusDrop(itemId, zoneId) {
+  const stage = currentStage();
+
+  if (!zoneId) {
+    resetBusMachineBadCount();
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "passbook" && zoneId === "driver") {
+    resetBusMachineBadCount();
+    state.discount = true;
+    setBadge("passbook", "提示済み");
+    showMessage("やすくなりました");
+    resetItem(itemId);
+    updateInfoPanel();
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "driver") {
+    resetBusMachineBadCount();
+    showMessage("きかいにいれてください");
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "driver") {
+    resetBusMachineBadCount();
+    showMessage("タッチしてください");
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "money" && zoneId === "cashSlot") {
+    resetBusMachineBadCount();
+
+    if (!hasEnoughMoney()) {
+      showMessage("おかねがたりません");
+      resetItem(itemId);
+      return;
+    }
+
+    if (
+      stage.clearMode === "busCash" ||
+      stage.clearMode === "busDiscountAny"
+    ) {
+      state.money = Math.max(0, state.money - getCurrentFare());
+      updateInfoPanel();
+      clearGame("お金ではらえました");
+      return;
+    }
+
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "icReader") {
+    resetBusMachineBadCount();
+
+    if (stage.id === 7 && !state.discount) {
+      showMessage("チャージしたおかねが\nたりない！");
+      resetItem(itemId);
+      return;
+    }
+
+    if (
+      stage.clearMode === "busIc" ||
+      stage.clearMode === "busDiscountAny"
+    ) {
+      clearGame("ICカードではらえました");
+      return;
+    }
+
+    resetItem(itemId);
+    return;
+  }
+
+  if (itemId === "ic" && zoneId === "cashSlot") {
+    resetItem(itemId);
+    if (addBusMachineBadCount()) return;
+    showMessage("カードをいれないで！！");
+    return;
+  }
+
+  if (itemId === "passbook" && (zoneId === "cashSlot" || zoneId === "icReader")) {
+    resetItem(itemId);
+    if (addBusMachineBadCount()) return;
+    showMessage("てちょうをいれないで！！");
+    return;
+  }
+
+  resetBusMachineBadCount();
+  resetItem(itemId);
+}
+
+function addStationGateBadCount() {
+  state.stationGateBadCount++;
+
+  if (state.stationGateBadCount >= 3) {
+    startGameOverSequence();
+    return true;
+  }
+
+  return false;
+}
+
+function resetStationGateBadCount() {
+  state.stationGateBadCount = 0;
+}
+
+function addBusMachineBadCount() {
+  state.busMachineBadCount++;
+
+  if (state.busMachineBadCount >= 3) {
+    startGameOverSequence();
+    return true;
+  }
+
+  return false;
+}
+
+function resetBusMachineBadCount() {
+  state.busMachineBadCount = 0;
+}
+
+function startGameOverSequence() {
+  if (gameOverSequence) return;
+
+  gameOverSequence = true;
+  inputLocked = true;
+
+  showTapMessage("めいわくなおきゃくさんは\nおことわりです！", () => {
+    showTapMessage("ゲームオーバー", () => {
+      hideMessage();
+      blackGameOver.classList.add("show");
+      inputLocked = true;
+    });
+  });
+}
+
+function resetAfterBlackGameOver() {
+  blackGameOver.classList.remove("show");
+  resetScene();
+}
+
+function resetAfterFinalClear() {
+  finalClearOverlay.classList.remove("show");
+  startStage(0);
+}
+
+function getZoneElement(zoneId) {
+  return document.querySelector(`.zone[data-zone="${zoneId}"]`);
+}
+
+function getZoneCenterInApp(zoneId) {
+  const zone = getZoneElement(zoneId);
+  const appRect = app.getBoundingClientRect();
+  const zoneRect = zone.getBoundingClientRect();
+
+  return {
+    x: zoneRect.left - appRect.left + zoneRect.width / 2,
+    y: zoneRect.top - appRect.top + zoneRect.height / 2
+  };
+}
+
+function getHomePointInApp(itemId) {
+  const el = getItem(itemId);
+  const appRect = app.getBoundingClientRect();
+
+  return {
+    x: appRect.width * parseFloat(el.dataset.startLeft) / 100 + el.offsetWidth / 2,
+    y: appRect.height * parseFloat(el.dataset.startTop) / 100 + el.offsetHeight / 2
+  };
+}
+
+function setItemCenterAtPoint(itemId, point) {
+  const el = getItem(itemId);
+  if (!el) return;
+
+  el.style.left = (point.x - el.offsetWidth / 2) + "px";
+  el.style.top = (point.y - el.offsetHeight / 2) + "px";
+}
+
+function moveItemToZone(itemId, zoneId, lockAfter = false) {
+  const el = getItem(itemId);
+  if (!el) return;
+
+  const p = getZoneCenterInApp(zoneId);
+
+  el.classList.remove("hidden", "used", "locked");
+  el.classList.add("animating");
+
+  requestAnimationFrame(() => {
+    setItemCenterAtPoint(itemId, p);
+  });
+
+  setTimeout(() => {
+    el.classList.remove("animating");
+    if (lockAfter) {
+      el.classList.add("locked");
+    }
+  }, 850);
+}
+
+function animateItemFromZoneToHome(itemId, zoneId, after = null) {
+  const el = getItem(itemId);
+  if (!el) return;
+
+  const start = getZoneCenterInApp(zoneId);
+
+  el.classList.remove("hidden", "used", "locked");
+  setItemCenterAtPoint(itemId, start);
+
+  void el.offsetWidth;
+
+  el.classList.add("animating");
+
+  requestAnimationFrame(() => {
+    const home = getHomePointInApp(itemId);
+    setItemCenterAtPoint(itemId, home);
+  });
+
+  setTimeout(() => {
+    el.classList.remove("animating", "locked");
+    resetItem(itemId);
+    if (after) after();
+  }, 850);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function showMessage(text) {
+  clearTimeout(messageTimer);
+  messageTapCallback = null;
+
+  messageWindow.textContent = text;
+  messageWindow.classList.add("show");
+  messageWindow.classList.remove("clickable");
+
+  messageTimer = setTimeout(() => {
+    hideMessage();
+  }, 1500);
+}
+
+function showTapMessage(text, callback = null) {
+  clearTimeout(messageTimer);
+
+  inputLocked = true;
+  messageTapCallback = callback || function(){};
+
+  messageWindow.innerHTML =
+    escapeHtml(text).replaceAll("\n", "<br>") +
+    '<span class="tap-guide">タップしてください</span>';
+
+  messageWindow.classList.add("show");
+  messageWindow.classList.add("clickable");
+}
+
+function hideMessage() {
+  clearTimeout(messageTimer);
+  messageWindow.classList.remove("show");
+  messageWindow.classList.remove("clickable");
+}
+
+function clearGame(text) {
+  state.cleared = true;
+  inputLocked = true;
+  hideMessage();
+
+  if (currentStageIndex === STAGES.length - 1) {
+    finalClearOverlay.classList.add("show");
+    return;
+  }
+
+  clearText.textContent = text;
+  clearOverlay.classList.add("show");
+}
+
+function getItem(id) {
+  return document.querySelector(`.drag-item[data-id="${id}"]`);
+}
+
+function resetItem(id) {
+  const el = getItem(id);
+  if (!el) return;
+
+  el.style.left = el.dataset.startLeft + "%";
+  el.style.top = el.dataset.startTop + "%";
+}
+
+function useItem(id) {
+  const el = getItem(id);
+  if (!el) return;
+
+  el.classList.add("used");
+}
+
+function setBadge(id, text) {
+  const el = getItem(id);
+  if (!el) return;
+
+  const badge = el.querySelector(".badge");
+  badge.textContent = text;
+  badge.classList.add("show");
+}
+
+function goNextStage() {
+  const next = currentStageIndex + 1;
+
+  if (next >= STAGES.length) {
+    startStage(0);
+  } else {
+    startStage(next);
+  }
+}
+
+function openStageSelect() {
+  if (gameOverSequence) return;
+
+  stageSelectGrid.innerHTML = "";
+
+  STAGES.forEach((stage, index) => {
+    const btn = document.createElement("button");
+    btn.className = "stage-choice";
+
+    if (index === currentStageIndex) {
+      btn.classList.add("current");
+    }
+
+    const typeName = stage.type === "train" ? "鉄道" : "バス";
+    btn.textContent = "ステージ" + stage.id + "：" + typeName;
+
+    btn.onclick = () => {
+      stageSelectOverlay.classList.remove("show");
+      startStage(index);
+    };
+
+    stageSelectGrid.appendChild(btn);
+  });
+
+  stageSelectOverlay.classList.add("show");
+}
+
+function closeStageSelect() {
+  stageSelectOverlay.classList.remove("show");
+}
+
+function toggleZones() {
+  app.classList.toggle("show-zones");
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "h" || e.key === "H") {
+    toggleZones();
+  }
+});
+
+startStage(0);
+</script>
+
+</body>
+</html>
